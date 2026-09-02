@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Catálogo Técnico de Defectos COIL - Fernando Arias</title>
@@ -20,25 +19,22 @@
 <header>
     <div>
         <h1>Catálogo Técnico de Defectos COIL</h1>
-        <p class="subtitle">Fernando Arias | Registro de defectos, posibles causas y soluciones recomendadas</p>    </div>
+        <p class="subtitle">Fernando Arias | Registro de defectos, posibles causas y soluciones recomendadas</p>
+    </div>
     <a href="nuevo.html" class="btn-primary" style="text-decoration: none;">+ Nuevo Defecto</a>
 </header>
 
-<div class="filter-bar">
-    <input type="text" id="searchInput" placeholder="Buscar por título, causa, solución...">
+<div class="filter-bar" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+    <input type="text" id="searchInput" placeholder="Buscar por título, causa, solución..." style="flex: 1; min-width: 200px;">
+
+    <!-- Desplegable dinámico de Categorías -->
     <select id="categoryFilter">
         <option value="">Todas las Categorías</option>
-        <option value="Superficie y Metal Base">Superficie y Metal Base</option>
-        <option value="Cráteres y Ojos de Pescado">Cráteres y Ojos de Pescado</option>
-        <option value="Oxidación y Humedad">Oxidación y Humedad</option>
-        <option value="Suciedad y Partículas">Suciedad y Partículas</option>
-        <option value="Filmado y Curado">Filmado y Curado</option>
-        <option value="Marcas de Rodillo / Impresiones">Marcas de Rodillo / Impresiones</option>
-        <option value="Adherencia y Espesor de Pintura">Adherencia y Espesor de Pintura</option>
-        <option value="Geometría y Bobinado">Geometría y Bobinado</option>
-        <!-- Nuevas categorías añadidas -->
-        <option value="Pintura">Pintura</option>
-        <option value="Instalación">Instalación</option>
+    </select>
+
+    <!-- Desplegable dinámico de Subcategorías -->
+    <select id="subCategoryFilter">
+        <option value="">Todas las Subcategorías</option>
     </select>
 </div>
 
@@ -83,19 +79,10 @@
             <input type="text" id="editTitulo" required>
 
             <label>Categoría:</label>
-            <select id="editCategoria" required>
-                <option value="Superficie y Metal Base">Superficie y Metal Base</option>
-                <option value="Cráteres y Ojos de Pescado">Cráteres y Ojos de Pescado</option>
-                <option value="Oxidación y Humedad">Oxidación y Humedad</option>
-                <option value="Suciedad y Partículas">Suciedad y Partículas</option>
-                <option value="Filmado y Curado">Filmado y Curado</option>
-                <option value="Marcas de Rodillo / Impresiones">Marcas de Rodillo / Impresiones</option>
-                <option value="Adherencia y Espesor de Pintura">Adherencia y Espesor de Pintura</option>
-                <option value="Geometría y Bobinado">Geometría y Bobinado</option>
-                <!-- Nuevas categorías añadidas -->
-                <option value="Pintura">Pintura</option>
-                <option value="Instalación">Instalación</option>
-            </select>
+            <input type="text" id="editCategoria" placeholder="Ej. Superficie y Metal Base" required>
+
+            <label>Subcategoría:</label>
+            <input type="text" id="editSubcategoria" placeholder="Ej. Cráteres y Pintura" required>
 
             <label>Cambiar Fotografía (Opcional):</label>
             <input type="file" id="editFoto" accept="image/*">
@@ -114,4 +101,3 @@
 <script src="app.js"></script>
 </body>
 </html>
-

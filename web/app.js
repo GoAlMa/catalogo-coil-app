@@ -4,8 +4,10 @@ let defectoSeleccionado = null;
 document.addEventListener('DOMContentLoaded', () => {
     cargarDefectos();
 
+    // Eventos de búsqueda y filtros
     document.getElementById('searchInput').addEventListener('input', filtrarDefectos);
     document.getElementById('categoryFilter').addEventListener('change', filtrarDefectos);
+    document.getElementById('subCategoryFilter').addEventListener('change', filtrarDefectos); // <-- NUEVO
 
     document.getElementById('editForm').addEventListener('submit', guardarEdicionDefecto);
 
@@ -27,10 +29,42 @@ async function cargarDefectos() {
     try {
         const res = await fetch('/api/defectos');
         listaDefectos = await res.json();
+
+        // Poblar los desplegables automáticamente con lo que haya guardado
+        poblarFiltrosDinamicos(listaDefectos);
+
         renderGrid(listaDefectos);
     } catch (err) {
         console.error("Error al cargar defectos:", err);
     }
+}
+
+// Función para rellenar los desplegables con valores únicos de la base de datos
+function poblarFiltrosDinamicos(defectos) {
+    const catSelect = document.getElementById('categoryFilter');
+    const subCatSelect = document.getElementById('subCategoryFilter');
+
+    // Mantener la opción por defecto limpia
+    catSelect.innerHTML = '<option value="">Todas las Categorías</option>';
+    subCatSelect.innerHTML = '<option value="">Todas las Subcategorías</option>';
+
+    // Extraer categorías y subcategorías únicas (evitando vacíos o nulos)
+    const categoriasUnicas = [...new Set(defectos.map(d => d.categoria).filter(Boolean))];
+    const subcategoriasUnicas = [...new Set(defectos.map(d => d.subcategoria).filter(Boolean))];
+
+    categoriasUnicas.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat;
+        catSelect.appendChild(opt);
+    });
+
+    subcategoriasUnicas.forEach(sub => {
+        const opt = document.createElement('option');
+        opt.value = sub;
+        opt.textContent = sub;
+        subCatSelect.appendChild(opt);
+    });
 }
 
 function renderGrid(defectos) {
@@ -50,7 +84,7 @@ function renderGrid(defectos) {
             <img src="${def.imagenUrl}" alt="${def.titulo}" onerror="this.src='https://via.placeholder.com/400x300?text=Sin+Imagen'">
             <div class="card-body">
                 <div class="card-title">${def.titulo}</div>
-                <span class="badge">${def.categoria}</span>
+                <span class="badge">${def.categoria} ${def.subcategoria ? ' / ' + def.subcategoria : ''}</span>
             </div>
         `;
 
@@ -63,7 +97,7 @@ function abrirModalDetalle(def) {
     defectoSeleccionado = def;
     document.getElementById('detailImg').src = def.imagenUrl;
     document.getElementById('detailTitle').textContent = def.titulo;
-    document.getElementById('detailBadge').textContent = def.categoria;
+    document.getElementById('detailBadge').textContent = `${def.categoria} ${def.subcategoria ? ' / ' + def.subcategoria : ''}`;
     document.getElementById('detailCausa').textContent = def.causa;
     document.getElementById('detailSolucion').textContent = def.solucion;
 
@@ -73,7 +107,8 @@ function abrirModalDetalle(def) {
 function abrirModalEditar(def) {
     document.getElementById('editId').value = def.id;
     document.getElementById('editTitulo').value = def.titulo;
-    document.getElementById('editCategoria').value = def.categoria;
+    document.getElementById('editCategoria').value = def.categoria || '';
+    document.getElementById('editSubcategoria').value = def.subcategoria || ''; // <-- NUEVO
     document.getElementById('editCausa').value = def.causa;
     document.getElementById('editSolucion').value = def.solucion;
 
@@ -87,13 +122,17 @@ function cerrarModal(id) {
 function filtrarDefectos() {
     const text = document.getElementById('searchInput').value.toLowerCase();
     const cat = document.getElementById('categoryFilter').value;
+    const subCat = document.getElementById('subCategoryFilter').value; // <-- NUEVO
 
     const filtrados = listaDefectos.filter(d => {
         const coincideTexto = d.titulo.toLowerCase().includes(text) ||
                               d.causa.toLowerCase().includes(text) ||
                               d.solucion.toLowerCase().includes(text);
+
         const coincideCat = cat === '' || d.categoria === cat;
-        return coincideTexto && coincideCat;
+        const coincideSubCat = subCat === '' || d.subcategoria === subCat; // <-- NUEVO
+
+        return coincideTexto && coincideCat && coincideSubCat;
     });
 
     renderGrid(filtrados);
@@ -121,17 +160,22 @@ async function guardarEdicionDefecto(e) {
         imagenUrl = uploadData.url;
     }
 
-    // Actualizar datos
+    // Actualizar datos incluyendo subcategoría
     listaDefectos[index] = {
         id: id,
         titulo: document.getElementById('editTitulo').value,
         categoria: document.getElementById('editCategoria').value,
+        subcategoria: document.getElementById('editSubcategoria').value, // <-- NUEVO
         imagenUrl: imagenUrl,
         causa: document.getElementById('editCausa').value,
         solucion: document.getElementById('editSolucion').value
     };
 
     await guardarJSON();
+
+    // Actualizar también los desplegables por si cambió la categoría o subcategoría
+    poblarFiltrosDinamicos(listaDefectos);
+
     cerrarModal('modalEditar');
     renderGrid(listaDefectos);
 }
@@ -140,6 +184,10 @@ async function borrarDefecto(id) {
     if (confirm("¿Estás seguro de que deseas eliminar este defecto del catálogo?")) {
         listaDefectos = listaDefectos.filter(d => d.id !== id);
         await guardarJSON();
+
+        // Actualizar desplegables tras borrar
+        poblarFiltrosDinamicos(listaDefectos);
+
         cerrarModal('modalDetalle');
         renderGrid(listaDefectos);
     }
@@ -158,4 +206,3 @@ async function guardarJSON() {
       });
     }
 }
-

@@ -24,11 +24,12 @@ async function guardarNuevoDefecto(e) {
         const resCat = await fetch('/api/defectos');
         const listaDefectos = await resCat.json();
 
-        // 3. Crear nuevo objeto
+        // 3. Crear nuevo objeto (añadiendo subcategoria)
         const nuevoDefecto = {
             id: Date.now(),
             titulo: document.getElementById('formTitulo').value,
             categoria: document.getElementById('formCategoria').value,
+            subcategoria: document.getElementById('formSubcategoria').value, // <-- NUEVO
             imagenUrl: imagenUrl,
             causa: document.getElementById('formCausa').value,
             solucion: document.getElementById('formSolucion').value
