@@ -14,9 +14,10 @@ public class ServidorWeb {
 
     private static final int PUERTO = Integer.parseInt(System.getenv().getOrDefault("PORT", "8085"));
     private static final Path ARCHIVO_JSON = Paths.get("defectos.json");
-    private static final Path DIR_UPLOADS = Paths.get("web/uploads");
+    private static final Path DIR_UPLOADS = Paths.get("web", "uploads"); // <- Forma segura multiplataforma
 
     public static void main(String[] args) throws IOException {
+        // Asegurar que la estructura de carpetas web/uploads exista de forma segura
         Files.createDirectories(DIR_UPLOADS);
 
         // Si defectos.json no existe o está vacío, lo inicializa correctamente
@@ -34,7 +35,8 @@ public class ServidorWeb {
             Files.writeString(ARCHIVO_JSON, jsonInicial, StandardCharsets.UTF_8);
         }
 
-        HttpServer server = HttpServer.create(new InetSocketAddress(PUERTO), 0);
+        // FUERZA LA ESCUCHA EN 0.0.0.0 PARA QUE LA NUBE LO ACCEDA CORRECTAMENTE
+        HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", PUERTO), 0);
         server.setExecutor(Executors.newCachedThreadPool());
 
         server.createContext("/api/defectos", new DefectosHandler());
@@ -42,7 +44,7 @@ public class ServidorWeb {
         server.createContext("/", new EstaticosHandler());
 
         server.start();
-        System.out.println(">>> Servidor Catálogo COIL corriendo en http://localhost:" + PUERTO);
+        System.out.println(">>> Servidor Catálogo COIL corriendo en puerto " + PUERTO);
     }
 
     static class DefectosHandler implements HttpHandler {
