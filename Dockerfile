@@ -8,7 +8,10 @@ RUN mvn clean package -DskipTests
 # 2. Fase de ejecución
 FROM eclipse-temurin:17-jre
 WORKDIR /app
-# Copiamos todos los .jar generados en target al contenedor
-COPY --from=build /app/target/*.jar app.jar
+
+# Copiamos ÚNICAMENTE el JAR generado que NO empieza por "original-"
+COPY --from=build /app/target/app.jar /app/app.jar
+
 EXPOSE 8080
-CMD ["java", "-jar", "app.jar"]
+CMD ["java", "-jar", "/app/app.jar"]
+
