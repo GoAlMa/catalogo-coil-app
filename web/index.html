@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catálogo Técnico de Defectos COIL - Fernando Arias</title>
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Configuración PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="COIL App">
+
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>Catálogo Técnico de Defectos COIL</h1>
+        <p class="subtitle">Inspección y Control de Calidad | Fernando Arias</p>
+    </div>
+    <a href="nuevo.html" class="btn-primary" style="text-decoration: none;">+ Nuevo Defecto</a>
+</header>
+
+<div class="filter-bar">
+    <input type="text" id="searchInput" placeholder="Buscar por título, causa, solución...">
+    <select id="categoryFilter">
+        <option value="">Todas las Categorías</option>
+        <option value="Superficie y Metal Base">Superficie y Metal Base</option>
+        <option value="Cráteres y Ojos de Pescado">Cráteres y Ojos de Pescado</option>
+        <option value="Oxidación y Humedad">Oxidación y Humedad</option>
+        <option value="Suciedad y Partículas">Suciedad y Partículas</option>
+        <option value="Filmado y Curado">Filmado y Curado</option>
+        <option value="Marcas de Rodillo / Impresiones">Marcas de Rodillo / Impresiones</option>
+        <option value="Adherencia y Espesor de Pintura">Adherencia y Espesor de Pintura</option>
+        <option value="Geometría y Bobinado">Geometría y Bobinado</option>
+    </select>
+</div>
+
+<main>
+    <div class="grid-container" id="gridDefectos"></div>
+</main>
+
+<!-- MODAL DE DETALLE -->
+<div id="modalDetalle" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="cerrarModal('modalDetalle')">&times;</span>
+        <img id="detailImg" src="" alt="Defecto">
+        <span id="detailBadge" class="badge">Categoría</span>
+        <h2 id="detailTitle">Título del Defecto</h2>
+
+        <div class="info-block causa">
+            <strong>Causa:</strong>
+            <p id="detailCausa"></p>
+        </div>
+
+        <div class="info-block solucion">
+            <strong>Solución Recomendada:</strong>
+            <p id="detailSolucion"></p>
+        </div>
+
+        <div class="modal-actions">
+            <button id="btnEditarModal" class="btn-warning">Editar Defecto</button>
+            <button id="btnBorrarModal" class="btn-danger">Borrar Defecto</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE EDICIÓN -->
+<div id="modalEditar" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="cerrarModal('modalEditar')">&times;</span>
+        <h2>Editar Defecto</h2>
+        <form id="editForm">
+            <input type="hidden" id="editId">
+
+            <label>Título / Nombre de la Falla:</label>
+            <input type="text" id="editTitulo" required>
+
+            <label>Categoría:</label>
+            <select id="editCategoria" required>
+                <option value="Superficie y Metal Base">Superficie y Metal Base</option>
+                <option value="Cráteres y Ojos de Pescado">Cráteres y Ojos de Pescado</option>
+                <option value="Oxidación y Humedad">Oxidación y Humedad</option>
+                <option value="Suciedad y Partículas">Suciedad y Partículas</option>
+                <option value="Filmado y Curado">Filmado y Curado</option>
+                <option value="Marcas de Rodillo / Impresiones">Marcas de Rodillo / Impresiones</option>
+                <option value="Adherencia y Espesor de Pintura">Adherencia y Espesor de Pintura</option>
+                <option value="Geometría y Bobinado">Geometría y Bobinado</option>
+            </select>
+
+            <label>Cambiar Fotografía (Opcional):</label>
+            <input type="file" id="editFoto" accept="image/*">
+
+            <label>Causa:</label>
+            <textarea id="editCausa" rows="3" required></textarea>
+
+            <label>Solución:</label>
+            <textarea id="editSolucion" rows="3" required></textarea>
+
+            <button type="submit" class="btn-primary" style="width:100%; margin-top:20px;">Guardar Cambios</button>
+        </form>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuevo Defecto - COIL Fernando Arias</title>
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Configuración PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="COIL App">
+
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>Registrar Nuevo Defecto</h1>
+        <p class="subtitle">Catálogo Técnico COIL – Fernando Arias</p>
+    </div>
+    <a href="index.html" class="btn-secondary" style="text-decoration: none;">&larr; Volver al Catálogo</a>
+</header>
+
+<main style="max-width: 600px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+    <form id="defectoForm">
+        <label>Título / Nombre de la Falla:</label>
+        <input type="text" id="formTitulo" required>
+
+        <label>Categoría:</label>
+        <select id="formCategoria" required>
+            <option value="Superficie y Metal Base">Superficie y Metal Base</option>
+            <option value="Cráteres y Ojos de Pescado">Cráteres y Ojos de Pescado</option>
+            <option value="Oxidación y Humedad">Oxidación y Humedad</option>
+            <option value="Suciedad y Partículas">Suciedad y Partículas</option>
+            <option value="Filmado y Curado">Filmado y Curado</option>
+            <option value="Marcas de Rodillo / Impresiones">Marcas de Rodillo / Impresiones</option>
+            <option value="Adherencia y Espesor de Pintura">Adherencia y Espesor de Pintura</option>
+            <option value="Geometría y Bobinado">Geometría y Bobinado</option>
+        </select>
+
+        <label>Fotografía del Defecto:</label>
+        <input type="file" id="formFoto" accept="image/*" required>
+
+        <label>Causa:</label>
+        <textarea id="formCausa" rows="3" required></textarea>
+
+        <label>Solución:</label>
+        <textarea id="formSolucion" rows="3" required></textarea>
+
+        <button type="submit" class="btn-primary" style="width:100%; margin-top:20px;">Guardar y Publicar</button>
+    </form>
+</main>
+
+<script src="nuevo.js"></script>
+</body>
+</html>
+
