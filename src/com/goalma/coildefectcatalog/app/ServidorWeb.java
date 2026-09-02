@@ -19,7 +19,6 @@ public class ServidorWeb {
     public static void main(String[] args) throws IOException, InterruptedException {
         Files.createDirectories(DIR_UPLOADS);
 
-        // Si defectos.json no existe o está vacío, lo inicializa correctamente
         if (!Files.exists(ARCHIVO_JSON) || Files.size(ARCHIVO_JSON) == 0) {
             String jsonInicial = "[\n" +
                     "  {\n" +
@@ -34,7 +33,6 @@ public class ServidorWeb {
             Files.writeString(ARCHIVO_JSON, jsonInicial, StandardCharsets.UTF_8);
         }
 
-        // Enlazado obligatorio a 0.0.0.0 para que Railway permita conexiones externas
         HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", PUERTO), 0);
         server.setExecutor(Executors.newCachedThreadPool());
 
@@ -45,10 +43,9 @@ public class ServidorWeb {
         server.start();
         System.out.println(">>> Servidor Catálogo COIL corriendo en puerto " + PUERTO);
 
-        // ESTO MANTIENE EL SERVIDOR VIVO CORRECTAMENTE
-        final Object lock = new Object();
-        synchronized (lock) {
-            lock.wait();
+        // Mantiene el hilo principal en pausa infinita para que el servidor no muera
+        Thread.sleep(Long.MAX_VALUE);
+    }
 
     static class DefectosHandler implements HttpHandler {
         @Override
@@ -146,3 +143,4 @@ public class ServidorWeb {
         }
     }
 }
+
