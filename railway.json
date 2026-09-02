@@ -4,6 +4,6 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "mvn clean package exec:java -Dexec.mainClass=\"com.goalma.coildefectcatalog.app.ServidorWeb\""
+    "startCommand": "mvn package -DskipTests && java -cp target/classes:target/dependency/* com.goalma.coildefectcatalog.app.ServidorWeb"
   }
 }
