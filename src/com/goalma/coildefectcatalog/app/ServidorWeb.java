@@ -45,6 +45,9 @@ public class ServidorWeb {
 
         server.start();
         System.out.println(">>> Servidor Catálogo COIL corriendo en puerto " + PUERTO);
+// ¡ESTO ES LO QUE FALTABA! Mantiene el hilo principal vivo para que el servidor no muera
+        Thread.currentThread().join();
+
     }
 
     static class DefectosHandler implements HttpHandler {
