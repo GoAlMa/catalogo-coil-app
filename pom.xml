@@ -15,6 +15,8 @@
     </properties>
 
     <build>
+        <!-- ESTA LÍNEA OBLIGA A MAVEN A LEER DESDE LA CARPETA SRC CORRECTAMENTE -->
+        <sourceDirectory>src</sourceDirectory>
         <finalName>app</finalName>
         <plugins>
             <plugin>
@@ -42,4 +44,3 @@
     </build>
 
 </project>
-
