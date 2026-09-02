@@ -1,4 +1,4 @@
-# 1. Fase de compilación
+# 1. Fase de compilación (Render compila el proyecto)
 FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /app
 COPY pom.xml .
@@ -8,10 +8,7 @@ RUN mvn clean package -DskipTests
 # 2. Fase de ejecución
 FROM eclipse-temurin:17-jre
 WORKDIR /app
-
-# Copiamos el archivo JAR generado
-COPY --from=build /app/target/coildefectcatalog-1.0-SNAPSHOT.jar /app/app.jar
-
-EXPOSE 8080
-CMD ["java", "-jar", "/app/app.jar"]
+COPY --from=build /app/target/*.jar app.jar
+EXPOSE 8085
+CMD ["java", "-jar", "app.jar"]
 
