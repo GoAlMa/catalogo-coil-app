@@ -8,7 +8,7 @@ RUN mvn clean package -DskipTests
 # 2. Fase de ejecución
 FROM eclipse-temurin:17-jre
 WORKDIR /app
-# Especificamos el jar shaded/ejecutable exacto que generó Maven
-COPY --from=build /app/target/*-shaded.jar app.jar
+COPY --from=build /app/target/coildefectcatalog-1.0-SNAPSHOT-shaded.jar app.jar
 EXPOSE 8085
 CMD ["java", "-jar", "app.jar"]
+
