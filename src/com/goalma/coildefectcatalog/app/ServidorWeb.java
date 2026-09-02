@@ -16,7 +16,7 @@ public class ServidorWeb {
     private static final Path ARCHIVO_JSON = Paths.get("defectos.json");
     private static final Path DIR_UPLOADS = Paths.get("web", "uploads");
 
-    public static void main(String[] args) throws IOException, InterruptedException {
+    public static void main(String[] args) throws IOException {
         Files.createDirectories(DIR_UPLOADS);
 
         if (!Files.exists(ARCHIVO_JSON) || Files.size(ARCHIVO_JSON) == 0) {
@@ -42,9 +42,6 @@ public class ServidorWeb {
 
         server.start();
         System.out.println(">>> Servidor Catálogo COIL corriendo en puerto " + PUERTO);
-
-        // Mantiene el hilo principal en pausa infinita para que el servidor no muera
-        Thread.sleep(Long.MAX_VALUE);
     }
 
     static class DefectosHandler implements HttpHandler {
@@ -62,24 +59,20 @@ public class ServidorWeb {
                 OutputStream os = exchange.getResponseBody();
                 os.write(response);
                 os.close();
-
             } else if ("POST".equalsIgnoreCase(method)) {
                 InputStream is = exchange.getRequestBody();
                 String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-
                 if (!body.trim().isEmpty()) {
                     synchronized (ARCHIVO_JSON) {
                         Files.writeString(ARCHIVO_JSON, body, StandardCharsets.UTF_8);
                     }
                 }
-
                 byte[] resMsg = "{\"status\": \"ok\"}".getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, resMsg.length);
                 OutputStream os = exchange.getResponseBody();
                 os.write(resMsg);
                 os.close();
-
             } else if ("OPTIONS".equalsIgnoreCase(method)) {
                 exchange.sendResponseHeaders(204, -1);
             }
@@ -90,17 +83,13 @@ public class ServidorWeb {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
             exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-
             if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
                 InputStream is = exchange.getRequestBody();
                 String fileName = "foto_" + System.currentTimeMillis() + ".jpg";
                 Path targetPath = DIR_UPLOADS.resolve(fileName);
-
                 Files.copy(is, targetPath, StandardCopyOption.REPLACE_EXISTING);
-
                 String jsonResponse = "{\"url\": \"/uploads/" + fileName + "\"}";
                 byte[] resBytes = jsonResponse.getBytes(StandardCharsets.UTF_8);
-
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, resBytes.length);
                 OutputStream os = exchange.getResponseBody();
@@ -117,9 +106,7 @@ public class ServidorWeb {
             if (path.equals("/")) {
                 path = "/index.html";
             }
-
             Path filePath = Paths.get("web", path);
-
             if (Files.exists(filePath) && !Files.isDirectory(filePath)) {
                 String mimeType = "text/html";
                 if (path.endsWith(".css")) mimeType = "text/css";
@@ -143,3 +130,4 @@ public class ServidorWeb {
         }
     }
 }
+
