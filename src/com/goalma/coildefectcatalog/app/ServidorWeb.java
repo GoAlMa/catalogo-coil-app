@@ -14,10 +14,9 @@ public class ServidorWeb {
 
     private static final int PUERTO = Integer.parseInt(System.getenv().getOrDefault("PORT", "8085"));
     private static final Path ARCHIVO_JSON = Paths.get("defectos.json");
-    private static final Path DIR_UPLOADS = Paths.get("web", "uploads"); // <- Forma segura multiplataforma
+    private static final Path DIR_UPLOADS = Paths.get("web", "uploads");
 
-    public static void main(String[] args) throws IOException {
-        // Asegurar que la estructura de carpetas web/uploads exista de forma segura
+    public static void main(String[] args) throws IOException, InterruptedException {
         Files.createDirectories(DIR_UPLOADS);
 
         // Si defectos.json no existe o está vacío, lo inicializa correctamente
@@ -35,7 +34,7 @@ public class ServidorWeb {
             Files.writeString(ARCHIVO_JSON, jsonInicial, StandardCharsets.UTF_8);
         }
 
-        // FUERZA LA ESCUCHA EN 0.0.0.0 PARA QUE LA NUBE LO ACCEDA CORRECTAMENTE
+        // Enlazado obligatorio a 0.0.0.0 para que Railway permita conexiones externas
         HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", PUERTO), 0);
         server.setExecutor(Executors.newCachedThreadPool());
 
@@ -45,9 +44,9 @@ public class ServidorWeb {
 
         server.start();
         System.out.println(">>> Servidor Catálogo COIL corriendo en puerto " + PUERTO);
-// ¡ESTO ES LO QUE FALTABA! Mantiene el hilo principal vivo para que el servidor no muera
-        Thread.currentThread().join();
 
+        // Mantiene el hilo principal vivo para que el servidor no se apague al arrancar
+        Thread.currentThread().join();
     }
 
     static class DefectosHandler implements HttpHandler {
