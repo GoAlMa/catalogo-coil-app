@@ -10,8 +10,7 @@ FROM eclipse-temurin:17-jre
 WORKDIR /app
 
 # Copiamos ÚNICAMENTE el JAR generado que NO empieza por "original-"
-COPY --from=build /app/target/app.jar /app/app.jar
-
+COPY --from=build /app/target/*shaded*.jar /app/app.jar
 EXPOSE 8080
 CMD ["java", "-jar", "/app/app.jar"]
 
