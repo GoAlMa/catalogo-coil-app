@@ -45,9 +45,10 @@ public class ServidorWeb {
         server.start();
         System.out.println(">>> Servidor Catálogo COIL corriendo en puerto " + PUERTO);
 
-        // Mantiene el hilo principal vivo para que el servidor no se apague al arrancar
-        Thread.currentThread().join();
-    }
+        // ESTO MANTIENE EL SERVIDOR VIVO CORRECTAMENTE
+        final Object lock = new Object();
+        synchronized (lock) {
+            lock.wait();
 
     static class DefectosHandler implements HttpHandler {
         @Override
