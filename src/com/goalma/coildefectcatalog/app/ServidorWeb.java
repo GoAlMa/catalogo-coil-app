@@ -13,8 +13,8 @@ import java.util.concurrent.Executors;
 public class ServidorWeb {
 
     private static final int PUERTO = Integer.parseInt(System.getenv().getOrDefault("PORT", "8085"));
-    private static final Path ARCHIVO_JSON = Paths.get("defectos.json");
     private static final Path DIR_UPLOADS = Paths.get("web", "uploads");
+    private static final Path ARCHIVO_JSON = DIR_UPLOADS.resolve("defectos.json");
 
     public static void main(String[] args) throws IOException {
         Files.createDirectories(DIR_UPLOADS);
