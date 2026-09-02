@@ -4,6 +4,6 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "mvn clean package -DskipTests && java -jar target/coildefectcatalog-1.0-SNAPSHOT-shaded.jar"
+    "startCommand": "mvn clean package -DskipTests && java -jar target/*.jar"
   }
 }
