@@ -15,13 +15,16 @@ import java.nio.file.*;
 
 public class ServidorWeb {
 
-    // Lee la variable de entorno STORAGE_DIR de Railway (por defecto usa ./data en local)
-    private static final String STORAGE_DIR = System.getenv("STORAGE_DIR") != null
-            ? System.getenv("STORAGE_DIR")
-            : "./data";
+    // Forzamos a que si STORAGE_DIR viene definido (ej: /data), lo use, si no ./data
+    private static final String STORAGE_DIR = getEnvOrDefault("STORAGE_DIR", "./data");
 
     private static final Path ARCHIVO_JSON = Paths.get(STORAGE_DIR, "defectos.json");
     private static final Path CARPETA_UPLOADS = Paths.get(STORAGE_DIR, "uploads");
+
+    private static String getEnvOrDefault(String key, String defaultValue) {
+        String val = System.getenv(key);
+        return (val != null && !val.trim().isEmpty()) ? val.trim() : defaultValue;
+    }
 
     public static void main(String[] args) throws IOException {
         Files.createDirectories(Paths.get(STORAGE_DIR));
@@ -42,7 +45,7 @@ public class ServidorWeb {
         server.setExecutor(null);
         server.start();
         System.out.println(">>> Servidor iniciado en el puerto " + puerto);
-        System.out.println(">>> Directorio de datos activo (Volumen): " + STORAGE_DIR);
+        System.out.println(">>> STORAGE_DIR configurado en: " + STORAGE_DIR);
     }
 
     static class DefectosHandler implements HttpHandler {
@@ -116,6 +119,7 @@ public class ServidorWeb {
                 Files.write(filePath, fileBytes);
                 System.out.println(">>> Foto guardada físicamente en: " + filePath.toAbsolutePath());
 
+                // Devolvemos la URL limpia /uploads/nombre.jpg
                 String jsonRespuesta = "{\"url\": \"/uploads/" + fileName + "\"}";
                 byte[] resBytes = jsonRespuesta.getBytes(StandardCharsets.UTF_8);
 
@@ -131,10 +135,10 @@ public class ServidorWeb {
     }
 
     public static void enviarBackupTelegram() {
-        String token = System.getenv("TELEGRAM_BOT_TOKEN");
-        String chatId = System.getenv("TELEGRAM_CHAT_ID");
+        String token = getEnvOrDefault("TELEGRAM_BOT_TOKEN", "");
+        String chatId = getEnvOrDefault("TELEGRAM_CHAT_ID", "");
 
-        if (token == null || chatId == null || token.isEmpty() || chatId.isEmpty()) {
+        if (token.isEmpty() || chatId.isEmpty()) {
             System.out.println(">>> Telegram OMITIDO: Faltan las variables TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID");
             return;
         }
