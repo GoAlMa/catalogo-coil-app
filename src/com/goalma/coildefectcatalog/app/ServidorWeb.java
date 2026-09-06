@@ -1,80 +1,95 @@
 package com.goalma.coildefectcatalog.app;
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpExchange;
 
 import java.io.*;
 import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
-import java.util.concurrent.Executors;
 
 public class ServidorWeb {
 
-    private static final int PUERTO = Integer.parseInt(System.getenv().getOrDefault("PORT", "8085"));
-    private static final Path DIR_UPLOADS = Paths.get("web", "uploads");
-    private static final Path ARCHIVO_JSON = DIR_UPLOADS.resolve("defectos.json");
+    // Lee la variable de entorno STORAGE_DIR de Railway (por defecto usa ./data en local)
+    private static final String STORAGE_DIR = System.getenv("STORAGE_DIR") != null
+            ? System.getenv("STORAGE_DIR")
+            : "./data";
+
+    private static final Path ARCHIVO_JSON = Paths.get(STORAGE_DIR, "defectos.json");
+    private static final Path CARPETA_UPLOADS = Paths.get(STORAGE_DIR, "uploads");
 
     public static void main(String[] args) throws IOException {
-        Files.createDirectories(DIR_UPLOADS);
+        Files.createDirectories(Paths.get(STORAGE_DIR));
+        Files.createDirectories(CARPETA_UPLOADS);
 
-        if (!Files.exists(ARCHIVO_JSON) || Files.size(ARCHIVO_JSON) == 0) {
-            String jsonInicial = "[\n" +
-                    "  {\n" +
-                    "    \"id\": 1,\n" +
-                    "    \"titulo\": \"Cráteres en Pintura\",\n" +
-                    "    \"categoria\": \"Cráteres y Pintura\",\n" +
-                    "    \"imagenUrl\": \"/uploads/foto_1788258786553.jpg\",\n" +
-                    "    \"causa\": \"Presencia de aceites o siliconas en la superficie antes del pintado.\",\n" +
-                    "    \"solucion\": \"Limpiar rodillos aplicadores y revisar la desengrasadora.\"\n" +
-                    "  }\n" +
-                    "]";
-            Files.writeString(ARCHIVO_JSON, jsonInicial, StandardCharsets.UTF_8);
+        if (!Files.exists(ARCHIVO_JSON)) {
+            Files.writeString(ARCHIVO_JSON, "[]", StandardCharsets.UTF_8);
         }
 
-        HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", PUERTO), 0);
-        server.setExecutor(Executors.newCachedThreadPool());
+        int puerto = 8085;
+        HttpServer server = HttpServer.create(new InetSocketAddress(puerto), 0);
 
+        server.createContext("/", new StaticFileHandler());
         server.createContext("/api/defectos", new DefectosHandler());
         server.createContext("/api/subir-foto", new SubirFotoHandler());
-        server.createContext("/", new EstaticosHandler());
+        server.createContext("/uploads", new UploadsHandler());
 
+        server.setExecutor(null);
         server.start();
-        System.out.println(">>> Servidor Catálogo COIL corriendo en puerto " + PUERTO);
+        System.out.println(">>> Servidor iniciado en el puerto " + puerto);
+        System.out.println(">>> Directorio de datos activo (Volumen): " + STORAGE_DIR);
     }
 
     static class DefectosHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-            exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
-
             String method = exchange.getRequestMethod();
 
+            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+            exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
+
+            if ("OPTIONS".equalsIgnoreCase(method)) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
             if ("GET".equalsIgnoreCase(method)) {
-                byte[] response = Files.readAllBytes(ARCHIVO_JSON);
-                exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
-                exchange.sendResponseHeaders(200, response.length);
-                OutputStream os = exchange.getResponseBody();
-                os.write(response);
-                os.close();
+                synchronized (ARCHIVO_JSON) {
+                    if (!Files.exists(ARCHIVO_JSON)) {
+                        Files.writeString(ARCHIVO_JSON, "[]", StandardCharsets.UTF_8);
+                    }
+                    byte[] response = Files.readAllBytes(ARCHIVO_JSON);
+                    exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
+                    exchange.sendResponseHeaders(200, response.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(response);
+                    }
+                }
             } else if ("POST".equalsIgnoreCase(method)) {
                 InputStream is = exchange.getRequestBody();
                 String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+
                 if (!body.trim().isEmpty()) {
                     synchronized (ARCHIVO_JSON) {
                         Files.writeString(ARCHIVO_JSON, body, StandardCharsets.UTF_8);
                     }
+                    enviarBackupTelegram();
                 }
+
                 byte[] resMsg = "{\"status\": \"ok\"}".getBytes(StandardCharsets.UTF_8);
-                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
                 exchange.sendResponseHeaders(200, resMsg.length);
-                OutputStream os = exchange.getResponseBody();
-                os.write(resMsg);
-                os.close();
-            } else if ("OPTIONS".equalsIgnoreCase(method)) {
-                exchange.sendResponseHeaders(204, -1);
+                try (OutputStream os = exchange.getResponseBody()) {
+                    os.write(resMsg);
+                }
+            } else {
+                exchange.sendResponseHeaders(405, -1);
             }
         }
     }
@@ -82,52 +97,140 @@ public class ServidorWeb {
     static class SubirFotoHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+            String method = exchange.getRequestMethod();
+
             exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-                InputStream is = exchange.getRequestBody();
+            exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "POST, OPTIONS");
+            exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
+
+            if ("OPTIONS".equalsIgnoreCase(method)) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            if ("POST".equalsIgnoreCase(method)) {
+                byte[] fileBytes = exchange.getRequestBody().readAllBytes();
                 String fileName = "foto_" + System.currentTimeMillis() + ".jpg";
-                Path targetPath = DIR_UPLOADS.resolve(fileName);
-                Files.copy(is, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                String jsonResponse = "{\"url\": \"/uploads/" + fileName + "\"}";
-                byte[] resBytes = jsonResponse.getBytes(StandardCharsets.UTF_8);
-                exchange.getResponseHeaders().set("Content-Type", "application/json");
+
+                Path filePath = CARPETA_UPLOADS.resolve(fileName);
+                Files.write(filePath, fileBytes);
+                System.out.println(">>> Foto guardada físicamente en: " + filePath.toAbsolutePath());
+
+                String jsonRespuesta = "{\"url\": \"/uploads/" + fileName + "\"}";
+                byte[] resBytes = jsonRespuesta.getBytes(StandardCharsets.UTF_8);
+
+                exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
                 exchange.sendResponseHeaders(200, resBytes.length);
-                OutputStream os = exchange.getResponseBody();
-                os.write(resBytes);
-                os.close();
+                try (OutputStream os = exchange.getResponseBody()) {
+                    os.write(resBytes);
+                }
+            } else {
+                exchange.sendResponseHeaders(405, -1);
             }
         }
     }
 
-    static class EstaticosHandler implements HttpHandler {
+    public static void enviarBackupTelegram() {
+        String token = System.getenv("TELEGRAM_BOT_TOKEN");
+        String chatId = System.getenv("TELEGRAM_CHAT_ID");
+
+        if (token == null || chatId == null || token.isEmpty() || chatId.isEmpty()) {
+            System.out.println(">>> Telegram OMITIDO: Faltan las variables TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID");
+            return;
+        }
+
+        try {
+            if (!Files.exists(ARCHIVO_JSON)) return;
+
+            String boundary = "Boundary-" + System.currentTimeMillis();
+            byte[] fileBytes = Files.readAllBytes(ARCHIVO_JSON);
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            baos.write(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
+            baos.write(("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+            baos.write((chatId + "\r\n").getBytes(StandardCharsets.UTF_8));
+
+            baos.write(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
+            baos.write(("Content-Disposition: form-data; name=\"document\"; filename=\"defectos_backup.json\"\r\n").getBytes(StandardCharsets.UTF_8));
+            baos.write(("Content-Type: application/json\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+            baos.write(fileBytes);
+            baos.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.telegram.org/bot" + token + "/sendDocument"))
+                    .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(baos.toByteArray()))
+                    .build();
+
+            client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenAccept(response -> {
+                        if (response.statusCode() == 200) {
+                            System.out.println(">>> Backup de Telegram enviado correctamente.");
+                        } else {
+                            System.err.println(">>> Error en Telegram (Código " + response.statusCode() + "): " + response.body());
+                        }
+                    });
+
+        } catch (Exception e) {
+            System.err.println(">>> Excepción al enviar backup a Telegram: " + e.getMessage());
+        }
+    }
+
+    static class StaticFileHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
             String path = exchange.getRequestURI().getPath();
             if (path.equals("/")) {
                 path = "/index.html";
             }
-            Path filePath = Paths.get("web", path);
-            if (Files.exists(filePath) && !Files.isDirectory(filePath)) {
-                String mimeType = "text/html";
-                if (path.endsWith(".css")) mimeType = "text/css";
-                else if (path.endsWith(".js")) mimeType = "text/javascript";
-                else if (path.endsWith(".jpg") || path.endsWith(".jpeg")) mimeType = "image/jpeg";
-                else if (path.endsWith(".png")) mimeType = "image/png";
 
-                byte[] fileBytes = Files.readAllBytes(filePath);
-                exchange.getResponseHeaders().set("Content-Type", mimeType + "; charset=UTF-8");
-                exchange.sendResponseHeaders(200, fileBytes.length);
-                OutputStream os = exchange.getResponseBody();
-                os.write(fileBytes);
-                os.close();
+            File file = new File("web" + path);
+            if (file.exists() && !file.isDirectory()) {
+                byte[] bytes = Files.readAllBytes(file.toPath());
+                String mimeType = obtenerMimeType(path);
+                exchange.getResponseHeaders().set("Content-Type", mimeType);
+                exchange.sendResponseHeaders(200, bytes.length);
+                try (OutputStream os = exchange.getResponseBody()) {
+                    os.write(bytes);
+                }
             } else {
-                String error = "404 Not Found";
-                exchange.sendResponseHeaders(404, error.length());
-                OutputStream os = exchange.getResponseBody();
-                os.write(error.getBytes());
-                os.close();
+                String notFound = "404 No encontrado";
+                exchange.sendResponseHeaders(404, notFound.getBytes().length);
+                try (OutputStream os = exchange.getResponseBody()) {
+                    os.write(notFound.getBytes());
+                }
             }
         }
     }
-}
 
+    static class UploadsHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            String path = exchange.getRequestURI().getPath();
+            String fileName = path.replace("/uploads/", "");
+
+            Path filePath = CARPETA_UPLOADS.resolve(fileName);
+            if (Files.exists(filePath) && !Files.isDirectory(filePath)) {
+                byte[] bytes = Files.readAllBytes(filePath);
+                exchange.getResponseHeaders().set("Content-Type", obtenerMimeType(fileName));
+                exchange.sendResponseHeaders(200, bytes.length);
+                try (OutputStream os = exchange.getResponseBody()) {
+                    os.write(bytes);
+                }
+            } else {
+                exchange.sendResponseHeaders(404, -1);
+            }
+        }
+    }
+
+    private static String obtenerMimeType(String path) {
+        if (path.endsWith(".html")) return "text/html; charset=UTF-8";
+        if (path.endsWith(".css")) return "text/css; charset=UTF-8";
+        if (path.endsWith(".js")) return "application/javascript; charset=UTF-8";
+        if (path.endsWith(".png")) return "image/png";
+        if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
+        if (path.endsWith(".json")) return "application/json; charset=UTF-8";
+        return "text/plain; charset=UTF-8";
+    }
+}
