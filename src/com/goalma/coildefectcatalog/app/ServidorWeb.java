@@ -236,12 +236,50 @@ public class ServidorWeb {
         }
     }
 
+
     static class UploadsHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
             String path = exchange.getRequestURI().getPath();
-            String fileName = path.replace("/uploads/", "");
+            String fileName = path.replace("/uploads/", "").trim();
 
+            // Si entran a /uploads/ sin nombre de fichero, listamos todas las fotos guardadas
+            if (fileName.isEmpty() || fileName.equals("/")) {
+                try {
+                    Files.createDirectories(CARPETA_UPLOADS);
+                    StringBuilder sb = new StringBuilder("<html><head><meta charset='UTF-8'><title>Fotos Guardadas</title></head><body style='font-family:sans-serif; padding:20px;'>");
+                    sb.append("<h2>📂 Archivos en el volumen persistente (/uploads):</h2><ul>");
+
+                    long totalFiles = 0;
+                    try (var stream = Files.list(CARPETA_UPLOADS)) {
+                        var files = stream.filter(p -> !Files.isDirectory(p)).toList();
+                        totalFiles = files.size();
+                        for (Path p : files) {
+                            String name = p.getFileName().toString();
+                            sb.append("<li><a href='/uploads/").append(name).append("' target='_blank'>").append(name).append("</a></li>");
+                        }
+                    }
+
+                    sb.append("</ul><p><b>Total de fotos almacenadas de forma segura: </b>").append(totalFiles).append("</p>");
+                    sb.append("</body></html>");
+
+                    byte[] bytes = sb.toString().getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
+                    exchange.sendResponseHeaders(200, bytes.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(bytes);
+                    }
+                } catch (Exception e) {
+                    String err = "Error al listar la carpeta: " + e.getMessage();
+                    exchange.sendResponseHeaders(500, err.getBytes().length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(err.getBytes());
+                    }
+                }
+                return;
+            }
+
+            // Si piden una foto concreta, la servimos
             Path filePath = CARPETA_UPLOADS.resolve(fileName);
             if (Files.exists(filePath) && !Files.isDirectory(filePath)) {
                 byte[] bytes = Files.readAllBytes(filePath);
