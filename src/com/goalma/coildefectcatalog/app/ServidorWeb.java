@@ -12,10 +12,12 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ServidorWeb {
 
-    // Detección automática del volumen de Railway o local
+    // Detección automática del volumen persistente de Railway (/data) o entorno local
     private static final String STORAGE_DIR = obtenerRutaInteligente();
 
     private static final Path ARCHIVO_JSON = Paths.get(STORAGE_DIR, "defectos.json");
@@ -83,11 +85,14 @@ public class ServidorWeb {
                     }
                 } else if ("POST".equalsIgnoreCase(method)) {
                     InputStream is = exchange.getRequestBody();
-                    String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                    String nuevoJson = new String(is.readAllBytes(), StandardCharsets.UTF_8);
 
-                    if (!body.trim().isEmpty()) {
+                    if (!nuevoJson.trim().isEmpty()) {
+                        // Limpieza de fotos huérfanas antes de sobrescribir el JSON
+                        limpiarFotosHuerfanas(nuevoJson);
+
                         synchronized (ARCHIVO_JSON) {
-                            Files.writeString(ARCHIVO_JSON, body, StandardCharsets.UTF_8);
+                            Files.writeString(ARCHIVO_JSON, nuevoJson, StandardCharsets.UTF_8);
                         }
                         enviarBackupTelegram();
                     }
@@ -114,6 +119,41 @@ public class ServidorWeb {
         }
     }
 
+    // Compara el JSON antiguo con el nuevo para borrar las fotos que ya no se usen
+    private static void limpiarFotosHuerfanas(String nuevoJson) {
+        try {
+            if (!Files.exists(ARCHIVO_JSON)) return;
+            String viejoJson = Files.readString(ARCHIVO_JSON, StandardCharsets.UTF_8);
+
+            // Extraemos todos los nombres de ficheros de imagen que aparecían antes y ahora
+            // Buscamos patrones como "foto_123456.jpg"
+            java.util.Set<String> fotosAntiguas = extraerNombresDeFotos(viejoJson);
+            java.util.Set<String> fotosNuevas = extraerNombresDeFotos(nuevoJson);
+
+            // Las fotos que estaban antes pero ya no están en la nueva lista se eliminan físicamente
+            for (String foto : fotosAntiguas) {
+                if (!fotosNuevas.contains(foto)) {
+                    Path rutaFoto = CARPETA_UPLOADS.resolve(foto);
+                    if (Files.deleteIfExists(rutaFoto)) {
+                        System.out.println(">>> [LIMPIEZA] Foto huérfana eliminada del disco: " + foto);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println(">>> Error limpiando fotos huérfanas: " + e.getMessage());
+        }
+    }
+
+    private static java.util.Set<String> extraerNombresDeFotos(String texto) {
+        java.util.Set<String> set = new java.util.HashSet<>();
+        Pattern pattern = Pattern.compile("foto_\\d+\\.(jpg|jpeg|png)", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pattern.matcher(texto);
+        while (matcher.find()) {
+            set.add(matcher.group());
+        }
+        return set;
+    }
+
     static class SubirFotoHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
@@ -133,7 +173,6 @@ public class ServidorWeb {
                     byte[] fileBytes = exchange.getRequestBody().readAllBytes();
                     String fileName = "foto_" + System.currentTimeMillis() + ".jpg";
 
-                    // Asegurar que la carpeta uploads existe antes de escribir
                     Files.createDirectories(CARPETA_UPLOADS);
                     Path filePath = CARPETA_UPLOADS.resolve(fileName);
                     Files.write(filePath, fileBytes);
@@ -167,12 +206,16 @@ public class ServidorWeb {
         String token = System.getenv("TELEGRAM_BOT_TOKEN");
         String chatId = System.getenv("TELEGRAM_CHAT_ID");
 
-        if (token == null || chatId == null || token.trim().isEmpty() || chatId.trim().isEmpty()) {
+        if (token == null || token.trim().isEmpty() || chatId == null || chatId.trim().isEmpty()) {
+            System.out.println(">>> Telegram OMITIDO: Faltan las variables TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID");
             return;
         }
 
         try {
             if (!Files.exists(ARCHIVO_JSON)) return;
+
+            String cleanToken = token.trim();
+            String cleanChatId = chatId.trim();
 
             String boundary = "Boundary-" + System.currentTimeMillis();
             byte[] fileBytes = Files.readAllBytes(ARCHIVO_JSON);
@@ -180,7 +223,7 @@ public class ServidorWeb {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             baos.write(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
             baos.write(("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-            baos.write((chatId.trim() + "\r\n").getBytes(StandardCharsets.UTF_8));
+            baos.write((cleanChatId + "\r\n").getBytes(StandardCharsets.UTF_8));
 
             baos.write(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
             baos.write(("Content-Disposition: form-data; name=\"document\"; filename=\"defectos_backup.json\"\r\n").getBytes(StandardCharsets.UTF_8));
@@ -190,7 +233,7 @@ public class ServidorWeb {
 
             HttpClient client = HttpClient.newHttpClient();
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://api.telegram.org/bot" + token.trim() + "/sendDocument"))
+                    .uri(URI.create("https://api.telegram.org/bot" + cleanToken + "/sendDocument"))
                     .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                     .POST(HttpRequest.BodyPublishers.ofByteArray(baos.toByteArray()))
                     .build();
@@ -198,14 +241,14 @@ public class ServidorWeb {
             client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                     .thenAccept(response -> {
                         if (response.statusCode() == 200) {
-                            System.out.println(">>> Backup de Telegram enviado correctamente.");
+                            System.out.println(">>> ¡ÉXITO! Backup de Telegram enviado correctamente.");
                         } else {
                             System.err.println(">>> Error en Telegram (Código " + response.statusCode() + "): " + response.body());
                         }
                     });
 
         } catch (Exception e) {
-            System.err.println(">>> Excepción al enviar backup a Telegram: " + e.getMessage());
+            System.err.println(">>> Excepción crítica al enviar backup a Telegram: " + e.getMessage());
         }
     }
 
@@ -236,14 +279,12 @@ public class ServidorWeb {
         }
     }
 
-
     static class UploadsHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
             String path = exchange.getRequestURI().getPath();
             String fileName = path.replace("/uploads/", "").trim();
 
-            // Si entran a /uploads/ sin nombre de fichero, listamos todas las fotos guardadas
             if (fileName.isEmpty() || fileName.equals("/")) {
                 try {
                     Files.createDirectories(CARPETA_UPLOADS);
@@ -279,7 +320,6 @@ public class ServidorWeb {
                 return;
             }
 
-            // Si piden una foto concreta, la servimos
             Path filePath = CARPETA_UPLOADS.resolve(fileName);
             if (Files.exists(filePath) && !Files.isDirectory(filePath)) {
                 byte[] bytes = Files.readAllBytes(filePath);
