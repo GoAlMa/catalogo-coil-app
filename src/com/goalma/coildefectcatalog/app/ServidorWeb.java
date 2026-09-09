@@ -22,6 +22,21 @@ public class ServidorWeb {
     private static Path CARPETA_UPLOADS;
 
     public static void main(String[] args) throws IOException {
+        // --- DIAGNOSTICO DE LA RAIZ DEL SERVIDOR ---
+        try {
+            java.io.File root = new java.io.File("/");
+            java.io.File[] files = root.listFiles();
+            System.out.println(">>> [DEBUG] Carpetas en la raíz del servidor (/):");
+            if (files != null) {
+                for (java.io.File f : files) {
+                    System.out.println(" - " + f.getAbsolutePath());
+                }
+            }
+        } catch (Exception e) {
+            System.err.println(">>> [DEBUG ERROR] No se pudo listar la raíz: " + e.getMessage());
+        }
+        // -------------------------------------------
+
         // Diagnóstico y selección de la ruta persistente
         String storageEnv = System.getenv("STORAGE_DIR");
         String rutaElegida = "./data";
