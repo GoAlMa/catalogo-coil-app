@@ -1,29 +1,72 @@
+// Comprobar si ya estás logueado como Fernando en este navegador
+let esFernando = localStorage.getItem('coil_user') === 'FERNANDO';
 let listaDefectos = [];
 let defectoSeleccionado = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+    aplicarModoSegunRol();
     cargarDefectos();
 
     // Eventos de búsqueda y filtros
     document.getElementById('searchInput').addEventListener('input', filtrarDefectos);
     document.getElementById('categoryFilter').addEventListener('change', filtrarDefectos);
-    document.getElementById('subCategoryFilter').addEventListener('change', filtrarDefectos); // <-- NUEVO
+    document.getElementById('subCategoryFilter').addEventListener('change', filtrarDefectos);
 
     document.getElementById('editForm').addEventListener('submit', guardarEdicionDefecto);
 
     document.getElementById('btnEditarModal').addEventListener('click', () => {
-        if (defectoSeleccionado) {
+        if (esFernando && defectoSeleccionado) {
             cerrarModal('modalDetalle');
             abrirModalEditar(defectoSeleccionado);
         }
     });
 
     document.getElementById('btnBorrarModal').addEventListener('click', () => {
-        if (defectoSeleccionado) {
+        if (esFernando && defectoSeleccionado) {
             borrarDefecto(defectoSeleccionado.id);
         }
     });
 });
+
+// Función que oculta o muestra los elementos de administración según el rol
+function aplicarModoSegunRol() {
+    const btnAcceso = document.getElementById('btnAccesoFernando');
+    const elementosAdmin = document.querySelectorAll('.admin-only');
+
+    if (esFernando) {
+        if (btnAcceso) {
+            btnAcceso.textContent = '🔓 Modo Fernando (Activo)';
+            btnAcceso.style.borderColor = '#16a34a';
+            btnAcceso.style.color = '#16a34a';
+        }
+        elementosAdmin.forEach(el => el.style.display = 'inline-block');
+    } else {
+        if (btnAcceso) {
+            btnAcceso.textContent = '🔐 Acceso Fernando';
+        }
+        elementosAdmin.forEach(el => el.style.display = 'none');
+    }
+}
+
+// Ventana para pedir la contraseña
+function pedirAccesoFernando() {
+    if (esFernando) {
+        if (confirm("¿Deseas salir del modo Fernando y volver a Modo Lector?")) {
+            localStorage.removeItem('coil_user');
+            location.reload();
+        }
+        return;
+    }
+
+    const password = prompt("Introduce la contraseña de acceso:");
+    if (password === "fernando123") { // Puedes cambiar la contraseña aquí si lo deseas
+        localStorage.setItem('coil_user', 'FERNANDO');
+        alert("¡Acceso concedido!");
+        location.reload();
+    } else if (password !== null) {
+        alert("Contraseña incorrecta.");
+    }
+}
 
 async function cargarDefectos() {
     try {
@@ -108,7 +151,7 @@ function abrirModalEditar(def) {
     document.getElementById('editId').value = def.id;
     document.getElementById('editTitulo').value = def.titulo;
     document.getElementById('editCategoria').value = def.categoria || '';
-    document.getElementById('editSubcategoria').value = def.subcategoria || ''; // <-- NUEVO
+    document.getElementById('editSubcategoria').value = def.subcategoria || '';
     document.getElementById('editCausa').value = def.causa;
     document.getElementById('editSolucion').value = def.solucion;
 
@@ -122,7 +165,7 @@ function cerrarModal(id) {
 function filtrarDefectos() {
     const text = document.getElementById('searchInput').value.toLowerCase();
     const cat = document.getElementById('categoryFilter').value;
-    const subCat = document.getElementById('subCategoryFilter').value; // <-- NUEVO
+    const subCat = document.getElementById('subCategoryFilter').value;
 
     const filtrados = listaDefectos.filter(d => {
         const coincideTexto = d.titulo.toLowerCase().includes(text) ||
@@ -130,7 +173,7 @@ function filtrarDefectos() {
                               d.solucion.toLowerCase().includes(text);
 
         const coincideCat = cat === '' || d.categoria === cat;
-        const coincideSubCat = subCat === '' || d.subcategoria === subCat; // <-- NUEVO
+        const coincideSubCat = subCat === '' || d.subcategoria === subCat;
 
         return coincideTexto && coincideCat && coincideSubCat;
     });
@@ -140,6 +183,7 @@ function filtrarDefectos() {
 
 async function guardarEdicionDefecto(e) {
     e.preventDefault();
+    if (!esFernando) return; // Seguridad extra
 
     const id = parseInt(document.getElementById('editId').value);
     const index = listaDefectos.findIndex(d => d.id === id);
@@ -165,7 +209,7 @@ async function guardarEdicionDefecto(e) {
         id: id,
         titulo: document.getElementById('editTitulo').value,
         categoria: document.getElementById('editCategoria').value,
-        subcategoria: document.getElementById('editSubcategoria').value, // <-- NUEVO
+        subcategoria: document.getElementById('editSubcategoria').value,
         imagenUrl: imagenUrl,
         causa: document.getElementById('editCausa').value,
         solucion: document.getElementById('editSolucion').value
@@ -181,6 +225,8 @@ async function guardarEdicionDefecto(e) {
 }
 
 async function borrarDefecto(id) {
+    if (!esFernando) return; // Seguridad extra
+
     if (confirm("¿Estás seguro de que deseas eliminar este defecto del catálogo?")) {
         listaDefectos = listaDefectos.filter(d => d.id !== id);
         await guardarJSON();
