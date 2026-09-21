@@ -30,10 +30,20 @@
         <input type="text" id="formTitulo" required>
 
         <label>Categoría:</label>
-        <input type="text" id="formCategoria" placeholder="Ej. Superficie y Metal Base" required>
+        <input type="text" id="categoria" list="listaCategoriasSugeridas" placeholder="Ej. Superficie y Metal Base" required>
+        <datalist id="listaCategoriasSugeridas">
+
+            <!-- Aquí puedes poner opcionalmente alguna categoría por defecto si quieres -->
+
+        </datalist>
 
         <label>Subcategoría:</label>
-        <input type="text" id="formSubcategoria" placeholder="Ej. Cráteres y Pintura" required>
+        <input type="text" id="subcategoria" list="listaSubcategoriasSugeridas" placeholder="Ej. Cráteres y Pintura" required>
+        <datalist id="listaSubcategoriasSugeridas">
+
+            <!-- Aquí puedes poner opcionalmente alguna subcategoría por defecto si quieres -->
+
+        </datalist>
 
         <label>Fotografía del Defecto:</label>
         <input type="file" id="formFoto" accept="image/*" required>
