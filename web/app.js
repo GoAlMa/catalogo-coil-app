@@ -59,7 +59,7 @@ function pedirAccesoFernando() {
     }
 
     const password = prompt("Introduce la contraseña de acceso:");
-    if (password === "fernando123") { // Puedes cambiar la contraseña aquí si lo deseas
+    if (password === "compilar_sonrisas();") { // Puedes cambiar la contraseña aquí
         localStorage.setItem('coil_user', 'FERNANDO');
         alert("¡Acceso concedido!");
         location.reload();
