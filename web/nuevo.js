@@ -1,11 +1,69 @@
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('defectoForm').addEventListener('submit', guardarNuevoDefecto);
+
+    const categoriaInput = document.getElementById('categoria');
+    categoriaInput.addEventListener('input', actualizarSugerenciasSubcategoria);
+    categoriaInput.addEventListener('change', actualizarSugerenciasSubcategoria);
+
+    cargarSugerencias();
 });
+
+let defectosExistentes = [];
 
 // Cabeceras con el token guardado en este navegador (si existe)
 function cabecerasAutorizadas(extra = {}) {
     const token = localStorage.getItem('coil_token');
     return token ? { ...extra, 'Authorization': 'Bearer ' + token } : { ...extra };
+}
+
+// Carga el catálogo para ofrecer las categorías y subcategorías ya usadas
+async function cargarSugerencias() {
+    try {
+        const res = await fetch('/api/defectos');
+        if (!res.ok) return;
+        defectosExistentes = await res.json();
+    } catch (err) {
+        console.error('No se pudieron cargar las sugerencias:', err);
+    }
+    rellenarDatalist('listaCategoriasSugeridas', valoresUnicos(defectosExistentes.map(d => d.categoria)));
+    actualizarSugerenciasSubcategoria();
+}
+
+// Valores únicos, sin repetir por mayúsculas o espacios, ordenados
+function valoresUnicos(valores) {
+    const vistos = new Map();
+    valores.forEach(v => {
+        const t = (v || '').trim();
+        if (t && !vistos.has(t.toLowerCase())) vistos.set(t.toLowerCase(), t);
+    });
+    return [...vistos.values()].sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+function rellenarDatalist(id, valores) {
+    const lista = document.getElementById(id);
+    lista.textContent = '';
+    valores.forEach(v => {
+        const opcion = document.createElement('option');
+        opcion.value = v;
+        lista.appendChild(opcion);
+    });
+}
+
+// Si hay una categoría escrita, las subcategorías sugeridas son las de esa categoría
+function actualizarSugerenciasSubcategoria() {
+    const cat = document.getElementById('categoria').value.trim().toLowerCase();
+    const delCat = defectosExistentes
+        .filter(d => (d.categoria || '').trim().toLowerCase() === cat)
+        .map(d => d.subcategoria);
+    const todas = defectosExistentes.map(d => d.subcategoria);
+    rellenarDatalist('listaSubcategoriasSugeridas', valoresUnicos(delCat.length ? delCat : todas));
+}
+
+// Si el texto escrito ya existe (ignorando mayúsculas), usa la forma que ya está en el catálogo
+function valorCanonico(texto, existentes) {
+    const t = (texto || '').trim();
+    const coincidencia = existentes.find(v => v.toLowerCase() === t.toLowerCase());
+    return coincidencia || t;
 }
 
 async function guardarNuevoDefecto(e) {
@@ -35,20 +93,23 @@ async function guardarNuevoDefecto(e) {
             imagenUrl = uploadData.url;
         }
 
-        // 2. Obtener lista actual de defectos
+        // 2. Obtener la lista actual de defectos
         const resCat = await fetch('/api/defectos');
         if (!resCat.ok) throw new Error(`No se pudo leer el catálogo (${resCat.status}).`);
         const listaDefectos = await resCat.json();
 
-        // 3. Crear nuevo objeto
+        // 3. Categoría y subcategoría: reutilizar la forma existente si ya la hay
+        const categorias = valoresUnicos(listaDefectos.map(d => d.categoria));
+        const subcategorias = valoresUnicos(listaDefectos.map(d => d.subcategoria));
+
         const nuevoDefecto = {
             id: Date.now(),
-            titulo: document.getElementById('formTitulo').value,
-            categoria: document.getElementById('categoria').value,
-            subcategoria: document.getElementById('subcategoria').value,
+            titulo: document.getElementById('formTitulo').value.trim(),
+            categoria: valorCanonico(document.getElementById('categoria').value, categorias),
+            subcategoria: valorCanonico(document.getElementById('subcategoria').value, subcategorias),
             imagenUrl: imagenUrl,
-            causa: document.getElementById('formCausa').value,
-            solucion: document.getElementById('formSolucion').value
+            causa: document.getElementById('formCausa').value.trim(),
+            solucion: document.getElementById('formSolucion').value.trim()
         };
 
         listaDefectos.push(nuevoDefecto);
