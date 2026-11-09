@@ -44,8 +44,8 @@ async function guardarNuevoDefecto(e) {
         const nuevoDefecto = {
             id: Date.now(),
             titulo: document.getElementById('formTitulo').value,
-            categoria: document.getElementById('formCategoria').value,
-            subcategoria: document.getElementById('formSubcategoria').value,
+            categoria: document.getElementById('categoria').value,
+            subcategoria: document.getElementById('subcategoria').value,
             imagenUrl: imagenUrl,
             causa: document.getElementById('formCausa').value,
             solucion: document.getElementById('formSolucion').value
