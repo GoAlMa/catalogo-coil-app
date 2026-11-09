@@ -298,7 +298,7 @@ async function guardarEdicionDefecto(e) {
 async function borrarDefecto(id) {
     if (!esFernando) return; // Seguridad extra
 
-    if (confirm("¿Estás seguro de que deseas eliminar este defecto del catálogo?")) {
+    if (confirm("Se quitará este defecto del catálogo, con su causa y su solución. La fotografía se conserva en el servidor. ¿Eliminarlo?")) {
         listaDefectos = listaDefectos.filter(d => d.id !== id);
         try {
             await guardarJSON();

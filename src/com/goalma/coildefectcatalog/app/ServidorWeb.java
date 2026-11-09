@@ -332,6 +332,7 @@ public class ServidorWeb {
                     byte[] bytes = recurso.readAllBytes();
                     String mimeType = obtenerMimeType(path);
                     exchange.getResponseHeaders().set("Content-Type", mimeType);
+                    exchange.getResponseHeaders().set("Cache-Control", "no-cache");
                     exchange.sendResponseHeaders(200, bytes.length);
                     try (OutputStream os = exchange.getResponseBody()) {
                         os.write(bytes);
@@ -394,6 +395,7 @@ public class ServidorWeb {
             if (Files.exists(filePath) && !Files.isDirectory(filePath)) {
                 byte[] bytes = Files.readAllBytes(filePath);
                 exchange.getResponseHeaders().set("Content-Type", obtenerMimeType(fileName));
+                exchange.getResponseHeaders().set("Cache-Control", "public, max-age=86400");
                 exchange.sendResponseHeaders(200, bytes.length);
                 try (OutputStream os = exchange.getResponseBody()) {
                     os.write(bytes);
