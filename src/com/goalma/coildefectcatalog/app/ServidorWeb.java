@@ -71,9 +71,11 @@ public class ServidorWeb {
         server.createContext("/api/subir-foto", new SubirFotoHandler());
         server.createContext("/api/sesion", new SesionHandler());
         server.createContext("/uploads", new UploadsHandler());
+        server.createContext("/api/backup-ahora", new BackupHandler());
 
         server.setExecutor(null);
         server.start();
+        iniciarBackupSemanal();
         System.out.println(">>> Servidor iniciado en el puerto " + puerto);
     }
 
@@ -153,7 +155,6 @@ public class ServidorWeb {
                             Files.writeString(tmp, nuevoJson, StandardCharsets.UTF_8);
                             Files.move(tmp, ARCHIVO_JSON, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
                         }
-                        enviarBackupTelegram();
                     }
 
                     byte[] resMsg = "{\"status\": \"ok\"}".getBytes(StandardCharsets.UTF_8);
@@ -258,33 +259,90 @@ public class ServidorWeb {
         }
     }
 
-    public static void enviarBackupTelegram() {
+    // ---- Copia de seguridad: datos + fotos en un ZIP, enviado a Telegram ----
+    private static final long INTERVALO_BACKUP_MS = 7L * 24 * 60 * 60 * 1000;
+    private static final long LIMITE_TELEGRAM_BYTES = 45L * 1024 * 1024;
+
+    static void iniciarBackupSemanal() {
+        java.util.concurrent.ScheduledExecutorService planificador =
+                java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+                    Thread hilo = new Thread(r, "backup-semanal");
+                    hilo.setDaemon(true);
+                    return hilo;
+                });
+        planificador.scheduleAtFixedRate(() -> {
+            try {
+                if (backupVencido()) enviarBackupTelegram();
+            } catch (Exception e) {
+                System.err.println(">>> Error en la comprobación del backup semanal: " + e.getMessage());
+            }
+        }, 1, 60, java.util.concurrent.TimeUnit.MINUTES);
+    }
+
+    static boolean backupVencido() throws IOException {
+        Path marca = Paths.get(STORAGE_DIR, "ultimo_backup.txt");
+        if (!Files.exists(marca)) return true;
+        long ultimo = Long.parseLong(Files.readString(marca).trim());
+        return System.currentTimeMillis() - ultimo >= INTERVALO_BACKUP_MS;
+    }
+
+    static byte[] crearZipBackup() throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(baos)) {
+            if (Files.exists(ARCHIVO_JSON)) {
+                zip.putNextEntry(new java.util.zip.ZipEntry("defectos.json"));
+                zip.write(Files.readAllBytes(ARCHIVO_JSON));
+                zip.closeEntry();
+            }
+            if (Files.isDirectory(CARPETA_UPLOADS)) {
+                java.util.List<Path> fotos;
+                try (java.util.stream.Stream<Path> lista = Files.list(CARPETA_UPLOADS)) {
+                    fotos = lista.filter(Files::isRegularFile).sorted().collect(java.util.stream.Collectors.toList());
+                }
+                for (Path foto : fotos) {
+                    zip.putNextEntry(new java.util.zip.ZipEntry("uploads/" + foto.getFileName()));
+                    zip.write(Files.readAllBytes(foto));
+                    zip.closeEntry();
+                }
+            }
+        }
+        return baos.toByteArray();
+    }
+
+    /** Envia el ZIP a Telegram. Devuelve true si el backup queda registrado como hecho. */
+    public static boolean enviarBackupTelegram() {
         String token = System.getenv("TELEGRAM_BOT_TOKEN");
         String chatId = System.getenv("TELEGRAM_CHAT_ID");
 
         if (token == null || token.trim().isEmpty() || chatId == null || chatId.trim().isEmpty()) {
             System.out.println(">>> Telegram OMITIDO: Faltan las variables TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID");
-            return;
+            return false;
         }
 
         try {
-            if (!Files.exists(ARCHIVO_JSON)) return;
-
             String cleanToken = token.trim();
             String cleanChatId = chatId.trim();
+            byte[] zip = crearZipBackup();
+            Path marca = Paths.get(STORAGE_DIR, "ultimo_backup.txt");
 
+            if (zip.length > LIMITE_TELEGRAM_BYTES) {
+                System.err.println(">>> Backup demasiado grande para Telegram (" + zip.length + " bytes). Revisar almacenamiento.");
+                Files.writeString(marca, String.valueOf(System.currentTimeMillis()));
+                return true;
+            }
+
+            String fecha = java.time.LocalDate.now(java.time.ZoneId.of("Europe/Madrid")).toString();
             String boundary = "Boundary-" + System.currentTimeMillis();
-            byte[] fileBytes = Files.readAllBytes(ARCHIVO_JSON);
 
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             baos.write(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
-            baos.write(("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+            baos.write("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n".getBytes(StandardCharsets.UTF_8));
             baos.write((cleanChatId + "\r\n").getBytes(StandardCharsets.UTF_8));
 
             baos.write(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
-            baos.write(("Content-Disposition: form-data; name=\"document\"; filename=\"defectos_backup.json\"\r\n").getBytes(StandardCharsets.UTF_8));
-            baos.write(("Content-Type: application/json\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-            baos.write(fileBytes);
+            baos.write(("Content-Disposition: form-data; name=\"document\"; filename=\"backup_coil_" + fecha + ".zip\"\r\n").getBytes(StandardCharsets.UTF_8));
+            baos.write("Content-Type: application/zip\r\n\r\n".getBytes(StandardCharsets.UTF_8));
+            baos.write(zip);
             baos.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
 
             HttpClient client = HttpClient.newHttpClient();
@@ -294,17 +352,39 @@ public class ServidorWeb {
                     .POST(HttpRequest.BodyPublishers.ofByteArray(baos.toByteArray()))
                     .build();
 
-            client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenAccept(response -> {
-                        if (response.statusCode() == 200) {
-                            System.out.println(">>> ¡ÉXITO! Backup de Telegram enviado correctamente.");
-                        } else {
-                            System.err.println(">>> Error en Telegram (Código " + response.statusCode() + "): " + response.body());
-                        }
-                    });
-
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                Files.writeString(marca, String.valueOf(System.currentTimeMillis()));
+                System.out.println(">>> ¡ÉXITO! Backup semanal enviado a Telegram.");
+                return true;
+            }
+            System.err.println(">>> Error en Telegram (Código " + response.statusCode() + "): " + response.body());
+            return false;
         } catch (Exception e) {
-            System.err.println(">>> Excepción crítica al enviar backup a Telegram: " + e.getMessage());
+            System.err.println(">>> Excepción al enviar backup a Telegram: " + e.getMessage());
+            return false;
+        }
+    }
+
+    // Permite lanzar una copia manualmente (requiere la clave de acceso)
+    static class BackupHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(405, -1);
+                return;
+            }
+            if (!escrituraAutorizada(exchange)) {
+                responderNoAutorizado(exchange);
+                return;
+            }
+            boolean ok = enviarBackupTelegram();
+            byte[] body = (ok ? "{\"status\": \"ok\"}" : "{\"status\": \"error\"}").getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
+            exchange.sendResponseHeaders(ok ? 200 : 500, body.length);
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(body);
+            }
         }
     }
 
