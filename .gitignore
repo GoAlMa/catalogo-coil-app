@@ -4,3 +4,8 @@
 defectos.json
 data/
 uploads/
+
+# Datos y fotos reales (no versionar)
+defectos.json
+data/
+web/uploads/
