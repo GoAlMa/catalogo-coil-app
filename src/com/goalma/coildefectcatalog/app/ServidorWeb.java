@@ -123,10 +123,10 @@ public class ServidorWeb {
                     String nuevoJson = new String(is.readAllBytes(), StandardCharsets.UTF_8);
 
                     if (!nuevoJson.trim().isEmpty()) {
-                        limpiarFotosHuerfanas(nuevoJson);
-
                         synchronized (ARCHIVO_JSON) {
-                            Files.writeString(ARCHIVO_JSON, nuevoJson, StandardCharsets.UTF_8);
+                            Path tmp = ARCHIVO_JSON.resolveSibling("defectos.json.tmp");
+                            Files.writeString(tmp, nuevoJson, StandardCharsets.UTF_8);
+                            Files.move(tmp, ARCHIVO_JSON, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
                         }
                         enviarBackupTelegram();
                     }

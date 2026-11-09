@@ -240,15 +240,17 @@ async function borrarDefecto(id) {
 }
 
 async function guardarJSON() {
-    await fetch('/api/defectos', {
+    const res = await fetch('/api/defectos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(listaDefectos)
     });
+    if (!res.ok) throw new Error(`El servidor respondió ${res.status}`);
+}
 
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW error:', err));
-      });
-    }
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .catch(err => console.error('SW error:', err));
+    });
 }
