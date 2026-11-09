@@ -18,6 +18,17 @@
         <!-- ESTA LÍNEA OBLIGA A MAVEN A LEER DESDE LA CARPETA SRC CORRECTAMENTE -->
         <sourceDirectory>src</sourceDirectory>
         <finalName>app</finalName>
+        <resources>
+            <!-- Empaqueta la web dentro del JAR. Los datos (uploads, defectos.json) NO se incluyen. -->
+            <resource>
+                <directory>web</directory>
+                <targetPath>web</targetPath>
+                <excludes>
+                    <exclude>uploads/**</exclude>
+                    <exclude>defectos.json</exclude>
+                </excludes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

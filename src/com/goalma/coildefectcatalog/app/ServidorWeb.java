@@ -290,16 +290,30 @@ public class ServidorWeb {
                 path = "/index.html";
             }
 
-            File file = new File("web" + path);
-            if (file.exists() && !file.isDirectory()) {
-                byte[] bytes = Files.readAllBytes(file.toPath());
-                String mimeType = obtenerMimeType(path);
-                exchange.getResponseHeaders().set("Content-Type", mimeType);
-                exchange.sendResponseHeaders(200, bytes.length);
+            // Bloquear rutas con ".." para no salir de la carpeta web
+            if (path.contains("..")) {
+                String prohibido = "403 Prohibido";
+                exchange.sendResponseHeaders(403, prohibido.getBytes().length);
                 try (OutputStream os = exchange.getResponseBody()) {
-                    os.write(bytes);
+                    os.write(prohibido.getBytes());
                 }
-            } else {
+                return;
+            }
+
+            // La web va empaquetada dentro del JAR (carpeta web/ en el classpath)
+            try (InputStream recurso = ServidorWeb.class.getResourceAsStream("/web" + path)) {
+                if (recurso != null) {
+                    byte[] bytes = recurso.readAllBytes();
+                    String mimeType = obtenerMimeType(path);
+                    exchange.getResponseHeaders().set("Content-Type", mimeType);
+                    exchange.sendResponseHeaders(200, bytes.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(bytes);
+                    }
+                    return;
+                }
+            }
+            {
                 String notFound = "404 No encontrado";
                 exchange.sendResponseHeaders(404, notFound.getBytes().length);
                 try (OutputStream os = exchange.getResponseBody()) {
