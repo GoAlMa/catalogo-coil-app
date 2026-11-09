@@ -74,6 +74,11 @@ async function guardarNuevoDefecto(e) {
         return;
     }
 
+    const boton = e.submitter || document.querySelector('#defectoForm button[type=submit]');
+    const textoOriginal = boton.textContent;
+    boton.disabled = true;
+    boton.textContent = 'Guardando…';
+
     const fotoInput = document.getElementById('formFoto');
     let imagenUrl = null;
 
@@ -130,5 +135,7 @@ async function guardarNuevoDefecto(e) {
     } catch (err) {
         alert('Error al guardar el defecto: ' + err.message);
         console.error(err);
+        boton.disabled = false;
+        boton.textContent = textoOriginal;
     }
 }

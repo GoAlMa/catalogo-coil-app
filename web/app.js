@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('searchInput').addEventListener('input', filtrarDefectos);
     document.getElementById('categoryFilter').addEventListener('change', filtrarDefectos);
     document.getElementById('subCategoryFilter').addEventListener('change', filtrarDefectos);
+    document.getElementById('btnLimpiarFiltros').addEventListener('click', limpiarFiltros);
 
     document.getElementById('editForm').addEventListener('submit', guardarEdicionDefecto);
 
@@ -141,6 +142,9 @@ function renderGrid(defectos) {
     const grid = document.getElementById('gridDefectos');
     grid.innerHTML = '';
 
+    const contador = document.getElementById('resultCount');
+    if (contador) contador.textContent = defectos.length === 1 ? '1 defecto' : `${defectos.length} defectos`;
+
     if (defectos.length === 0) {
         const vacio = document.createElement('p');
         vacio.style.cssText = 'grid-column: 1/-1; text-align:center; color:#666;';
@@ -184,6 +188,7 @@ function renderGrid(defectos) {
 function abrirModalDetalle(def) {
     defectoSeleccionado = def;
     document.getElementById('detailImg').src = def.imagenUrl;
+    document.getElementById('detailImg').alt = 'Fotografía de ' + (def.titulo || 'defecto');
     document.getElementById('detailTitle').textContent = def.titulo;
     document.getElementById('detailBadge').textContent = `${def.categoria} ${def.subcategoria ? ' / ' + def.subcategoria : ''}`;
     document.getElementById('detailCausa').textContent = def.causa;
@@ -223,7 +228,18 @@ function filtrarDefectos() {
         return coincideTexto && coincideCat && coincideSubCat;
     });
 
+    const hayFiltros = text !== '' || cat !== '' || subCat !== '';
+    const btnLimpiar = document.getElementById('btnLimpiarFiltros');
+    if (btnLimpiar) btnLimpiar.style.display = hayFiltros ? '' : 'none';
+
     renderGrid(filtrados);
+}
+
+function limpiarFiltros() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('categoryFilter').value = '';
+    document.getElementById('subCategoryFilter').value = '';
+    filtrarDefectos();
 }
 
 async function guardarEdicionDefecto(e) {

@@ -8,8 +8,8 @@
     --text-3: #8a93a3;
     --border: #e3e7ee;
     --border-strong: #cfd6e2;
-    --accent: #2563eb;
-    --accent-hover: #1d4ed8;
+    --accent: #3b5b8c;
+    --accent-hover: #2f4a72;
     --danger: #dc2626;
     --danger-soft: #fef2f2;
     --success: #16a34a;
@@ -137,7 +137,7 @@ form select:focus,
 form textarea:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    box-shadow: 0 0 0 3px rgba(59, 91, 140, 0.15);
 }
 
 .result-count {
@@ -319,6 +319,17 @@ form textarea {
 }
 
 form textarea { resize: vertical; }
+
+form .ayuda {
+    font-size: 0.8rem;
+    color: var(--text-3);
+    margin-top: 4px;
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
 
 form input[type="file"] {
     padding: 8px;
