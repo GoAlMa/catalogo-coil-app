@@ -4,6 +4,10 @@ let listaDefectos = [];
 let defectoSeleccionado = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') document.querySelectorAll('.modal').forEach(m => { if (m.style.display === 'flex') m.style.display = 'none'; });
+    });
+    document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; }));
     verificarSesion().then(() => {
         aplicarModoSegunRol();
         cargarDefectos();
@@ -37,14 +41,14 @@ function aplicarModoSegunRol() {
 
     if (esFernando) {
         if (btnAcceso) {
-            btnAcceso.textContent = '🔓 Modo Fernando (Activo)';
+            btnAcceso.textContent = 'Modo edición activo';
             btnAcceso.style.borderColor = '#16a34a';
             btnAcceso.style.color = '#16a34a';
         }
         elementosAdmin.forEach(el => el.style.display = 'inline-block');
     } else {
         if (btnAcceso) {
-            btnAcceso.textContent = '🔐 Acceso Fernando';
+            btnAcceso.textContent = 'Acceso de edición';
         }
         elementosAdmin.forEach(el => el.style.display = 'none');
     }
