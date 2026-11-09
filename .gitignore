@@ -1,2 +1,6 @@
 # Project exclude paths
 /target/
+# Datos de la aplicacion (no versionar)
+defectos.json
+data/
+uploads/
