@@ -1,11 +1,13 @@
 // Comprobar si ya estás logueado como Fernando en este navegador
-let esFernando = localStorage.getItem('coil_user') === 'FERNANDO';
+let esFernando = false; // Se confirma con el servidor al cargar (ver verificarSesion)
 let listaDefectos = [];
 let defectoSeleccionado = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-    aplicarModoSegunRol();
-    cargarDefectos();
+    verificarSesion().then(() => {
+        aplicarModoSegunRol();
+        cargarDefectos();
+    });
 
     // Eventos de búsqueda y filtros
     document.getElementById('searchInput').addEventListener('input', filtrarDefectos);
@@ -49,24 +51,45 @@ function aplicarModoSegunRol() {
 }
 
 // Ventana para pedir la contraseña
-function pedirAccesoFernando() {
+async function pedirAccesoFernando() {
     if (esFernando) {
         if (confirm("¿Deseas salir del modo Fernando y volver a Modo Lector?")) {
-            localStorage.removeItem('coil_user');
+            localStorage.removeItem('coil_token');
             location.reload();
         }
         return;
     }
 
-    const password = prompt("Introduce la contraseña de acceso:");
-    if (password === "compilar_sonrisas();") { // Puedes cambiar la contraseña aquí
-        localStorage.setItem('coil_user', 'FERNANDO');
+    const token = prompt("Introduce la clave de acceso:");
+    if (token === null) return;
+
+    localStorage.setItem('coil_token', token.trim());
+    if (await verificarSesion()) {
         alert("¡Acceso concedido!");
         location.reload();
-    } else if (password !== null) {
-        alert("Contraseña incorrecta.");
+    } else {
+        localStorage.removeItem('coil_token');
+        alert("Clave incorrecta.");
     }
 }
+
+// Cabeceras con el token guardado en este navegador (si existe)
+function cabecerasAutorizadas(extra = {}) {
+    const token = localStorage.getItem('coil_token');
+    return token ? { ...extra, 'Authorization': 'Bearer ' + token } : { ...extra };
+}
+
+// Pregunta al servidor si el token es valido. El servidor es quien decide, no el cliente.
+async function verificarSesion() {
+    try {
+        const res = await fetch('/api/sesion', { headers: cabecerasAutorizadas() });
+        esFernando = res.ok;
+    } catch (err) {
+        esFernando = false;
+    }
+    return esFernando;
+}
+
 
 async function cargarDefectos() {
     try {
@@ -115,21 +138,39 @@ function renderGrid(defectos) {
     grid.innerHTML = '';
 
     if (defectos.length === 0) {
-        grid.innerHTML = '<p style="grid-column: 1/-1; text-align:center; color:#666;">No se encontraron defectos.</p>';
+        const vacio = document.createElement('p');
+        vacio.style.cssText = 'grid-column: 1/-1; text-align:center; color:#666;';
+        vacio.textContent = 'No se encontraron defectos.';
+        grid.appendChild(vacio);
         return;
     }
+
+    const SIN_IMAGEN = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='100%' height='100%' fill='%23e2e8f0'/><text x='50%' y='50%' text-anchor='middle' fill='%2364748b' font-family='sans-serif'>Sin imagen</text></svg>";
 
     defectos.forEach(def => {
         const card = document.createElement('div');
         card.className = 'card';
 
-        card.innerHTML = `
-            <img src="${def.imagenUrl}" alt="${def.titulo}" onerror="this.src='https://via.placeholder.com/400x300?text=Sin+Imagen'">
-            <div class="card-body">
-                <div class="card-title">${def.titulo}</div>
-                <span class="badge">${def.categoria} ${def.subcategoria ? ' / ' + def.subcategoria : ''}</span>
-            </div>
-        `;
+        const img = document.createElement('img');
+        img.src = def.imagenUrl || SIN_IMAGEN;
+        img.alt = def.titulo || 'Defecto';
+        img.onerror = () => { img.src = SIN_IMAGEN; };
+
+        const body = document.createElement('div');
+        body.className = 'card-body';
+
+        const titulo = document.createElement('div');
+        titulo.className = 'card-title';
+        titulo.textContent = def.titulo || '';
+
+        const badge = document.createElement('span');
+        badge.className = 'badge';
+        badge.textContent = `${def.categoria || ''}${def.subcategoria ? ' / ' + def.subcategoria : ''}`;
+
+        body.appendChild(titulo);
+        body.appendChild(badge);
+        card.appendChild(img);
+        card.appendChild(body);
 
         card.onclick = () => abrirModalDetalle(def);
         grid.appendChild(card);
@@ -198,8 +239,13 @@ async function guardarEdicionDefecto(e) {
         const file = fotoInput.files[0];
         const uploadRes = await fetch('/api/subir-foto', {
             method: 'POST',
+            headers: cabecerasAutorizadas(),
             body: file
         });
+        if (!uploadRes.ok) {
+            alert('No se pudo subir la foto. Comprueba la clave de acceso.');
+            return;
+        }
         const uploadData = await uploadRes.json();
         imagenUrl = uploadData.url;
     }
@@ -215,7 +261,12 @@ async function guardarEdicionDefecto(e) {
         solucion: document.getElementById('editSolucion').value
     };
 
-    await guardarJSON();
+    try {
+        await guardarJSON();
+    } catch (err) {
+        alert('No se pudo guardar: ' + err.message);
+        return;
+    }
 
     // Actualizar también los desplegables por si cambió la categoría o subcategoría
     poblarFiltrosDinamicos(listaDefectos);
@@ -229,7 +280,12 @@ async function borrarDefecto(id) {
 
     if (confirm("¿Estás seguro de que deseas eliminar este defecto del catálogo?")) {
         listaDefectos = listaDefectos.filter(d => d.id !== id);
-        await guardarJSON();
+        try {
+            await guardarJSON();
+        } catch (err) {
+            alert('No se pudo borrar: ' + err.message);
+            return;
+        }
 
         // Actualizar desplegables tras borrar
         poblarFiltrosDinamicos(listaDefectos);
@@ -242,12 +298,12 @@ async function borrarDefecto(id) {
 async function guardarJSON() {
     const res = await fetch('/api/defectos', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: cabecerasAutorizadas({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(listaDefectos)
     });
+    if (res.status === 401) throw new Error('Clave no válida o caducada. Vuelve a acceder en modo Fernando.');
     if (!res.ok) throw new Error(`El servidor respondió ${res.status}`);
 }
-
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')

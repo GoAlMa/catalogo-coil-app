@@ -84,6 +84,7 @@ public class ServidorWeb {
         server.createContext("/", new StaticFileHandler());
         server.createContext("/api/defectos", new DefectosHandler());
         server.createContext("/api/subir-foto", new SubirFotoHandler());
+        server.createContext("/api/sesion", new SesionHandler());
         server.createContext("/uploads", new UploadsHandler());
 
         server.setExecutor(null);
@@ -91,14 +92,49 @@ public class ServidorWeb {
         System.out.println(">>> Servidor iniciado en el puerto " + puerto);
     }
 
+    // ---- Autenticacion de escritura ----
+    // El token se lee de la variable de entorno ACCESO_TOKEN.
+    // Si la variable no existe o esta vacia, NO se permite ninguna escritura.
+    static boolean escrituraAutorizada(HttpExchange exchange) {
+        String esperado = System.getenv("ACCESO_TOKEN");
+        if (esperado == null || esperado.trim().isEmpty()) return false;
+
+        String cabecera = exchange.getRequestHeaders().getFirst("Authorization");
+        if (cabecera == null || !cabecera.startsWith("Bearer ")) return false;
+
+        byte[] recibido = cabecera.substring(7).trim().getBytes(StandardCharsets.UTF_8);
+        byte[] correcto = esperado.trim().getBytes(StandardCharsets.UTF_8);
+        return java.security.MessageDigest.isEqual(recibido, correcto);
+    }
+
+    static void responderNoAutorizado(HttpExchange exchange) throws IOException {
+        byte[] body = "{\"error\": \"No autorizado\"}".getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
+        exchange.sendResponseHeaders(401, body.length);
+        try (OutputStream os = exchange.getResponseBody()) {
+            os.write(body);
+        }
+    }
+
+    // Permite al cliente comprobar si el token es valido (200) o no (401)
+    static class SesionHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            boolean ok = escrituraAutorizada(exchange);
+            byte[] body = (ok ? "{\"ok\": true}" : "{\"ok\": false}").getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
+            exchange.sendResponseHeaders(ok ? 200 : 401, body.length);
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(body);
+            }
+        }
+    }
+
     static class DefectosHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
             String method = exchange.getRequestMethod();
 
-            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-            exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-            exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
 
             if ("OPTIONS".equalsIgnoreCase(method)) {
                 exchange.sendResponseHeaders(204, -1);
@@ -119,6 +155,10 @@ public class ServidorWeb {
                         }
                     }
                 } else if ("POST".equalsIgnoreCase(method)) {
+                    if (!escrituraAutorizada(exchange)) {
+                        responderNoAutorizado(exchange);
+                        return;
+                    }
                     InputStream is = exchange.getRequestBody();
                     String nuevoJson = new String(is.readAllBytes(), StandardCharsets.UTF_8);
 
@@ -143,7 +183,7 @@ public class ServidorWeb {
             } catch (Exception e) {
                 System.err.println(">>> Error en DefectosHandler: " + e.getMessage());
                 e.printStackTrace();
-                String errorRes = "{\"error\": \"" + e.getMessage() + "\"}";
+                String errorRes = "{\"error\": \"Error interno del servidor\"}";
                 exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
                 exchange.sendResponseHeaders(500, errorRes.getBytes().length);
                 try (OutputStream os = exchange.getResponseBody()) {
@@ -189,9 +229,6 @@ public class ServidorWeb {
         public void handle(HttpExchange exchange) throws IOException {
             String method = exchange.getRequestMethod();
 
-            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-            exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "POST, OPTIONS");
-            exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
 
             if ("OPTIONS".equalsIgnoreCase(method)) {
                 exchange.sendResponseHeaders(204, -1);
@@ -200,6 +237,10 @@ public class ServidorWeb {
 
             try {
                 if ("POST".equalsIgnoreCase(method)) {
+                    if (!escrituraAutorizada(exchange)) {
+                        responderNoAutorizado(exchange);
+                        return;
+                    }
                     byte[] fileBytes = exchange.getRequestBody().readAllBytes();
                     String fileName = "foto_" + System.currentTimeMillis() + ".jpg";
 
@@ -222,7 +263,7 @@ public class ServidorWeb {
             } catch (Exception e) {
                 System.err.println(">>> Error al subir la foto: " + e.getMessage());
                 e.printStackTrace();
-                String errorRes = "{\"error\": \"" + e.getMessage() + "\"}";
+                String errorRes = "{\"error\": \"Error interno del servidor\"}";
                 exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
                 exchange.sendResponseHeaders(500, errorRes.getBytes().length);
                 try (OutputStream os = exchange.getResponseBody()) {
