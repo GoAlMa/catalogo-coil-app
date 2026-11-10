@@ -356,3 +356,32 @@ main.formulario {
     .modal-content { padding: 18px; }
     .modal-actions { flex-direction: column; }
 }
+
+
+.fechas {
+    font-size: 0.8rem;
+    color: var(--text-3);
+    margin-top: 12px;
+}
+
+@media print {
+    body.imprimir-ficha * { visibility: hidden; }
+    body.imprimir-ficha #modalDetalle,
+    body.imprimir-ficha #modalDetalle * { visibility: visible; }
+    body.imprimir-ficha #modalDetalle {
+        position: absolute;
+        inset: 0;
+        display: block !important;
+        background: none;
+        padding: 0;
+    }
+    body.imprimir-ficha .modal-content {
+        box-shadow: none;
+        border: none;
+        max-width: 100%;
+        max-height: none;
+    }
+    body.imprimir-ficha .close-btn,
+    body.imprimir-ficha .modal-actions { display: none !important; }
+    body.imprimir-ficha #detailImg { max-height: 60vh; object-fit: contain; }
+}

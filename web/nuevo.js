@@ -114,7 +114,8 @@ async function guardarNuevoDefecto(e) {
             subcategoria: valorCanonico(document.getElementById('subcategoria').value, subcategorias),
             imagenUrl: imagenUrl,
             causa: document.getElementById('formCausa').value.trim(),
-            solucion: document.getElementById('formSolucion').value.trim()
+            solucion: document.getElementById('formSolucion').value.trim(),
+            fechaAlta: new Date().toISOString()
         };
 
         listaDefectos.push(nuevoDefecto);
