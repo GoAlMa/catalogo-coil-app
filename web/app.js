@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    document.getElementById('btnImprimirModal').addEventListener('click', imprimirFicha);
     document.getElementById('btnBorrarModal').addEventListener('click', () => {
         if (esFernando && defectoSeleccionado) {
             borrarDefecto(defectoSeleccionado.id);
@@ -185,6 +186,29 @@ function renderGrid(defectos) {
     });
 }
 
+// ---- Utilidades de datos ----
+function valorCanonico(texto, existentes) {
+    const t = (texto || '').trim();
+    const coincidencia = existentes.find(v => v.toLowerCase() === t.toLowerCase());
+    return coincidencia || t;
+}
+
+function formatearFecha(iso) {
+    const f = new Date(iso);
+    if (isNaN(f)) return '';
+    return f.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function imprimirFicha() {
+    document.body.classList.add('imprimir-ficha');
+    const quitar = () => {
+        document.body.classList.remove('imprimir-ficha');
+        window.removeEventListener('afterprint', quitar);
+    };
+    window.addEventListener('afterprint', quitar);
+    window.print();
+}
+
 function abrirModalDetalle(def) {
     defectoSeleccionado = def;
     document.getElementById('detailImg').src = def.imagenUrl;
@@ -194,6 +218,11 @@ function abrirModalDetalle(def) {
     document.getElementById('detailCausa').textContent = def.causa;
     document.getElementById('detailSolucion').textContent = def.solucion;
 
+    const fechas = [];
+    if (def.fechaAlta) fechas.push('Alta: ' + formatearFecha(def.fechaAlta));
+    if (def.fechaModificacion) fechas.push('Última modificación: ' + formatearFecha(def.fechaModificacion));
+    document.getElementById('detailFechas').textContent = fechas.join(' · ');
+
     document.getElementById('modalDetalle').style.display = 'flex';
 }
 
@@ -202,6 +231,12 @@ function abrirModalEditar(def) {
     document.getElementById('editTitulo').value = def.titulo;
     document.getElementById('editCategoria').value = def.categoria || '';
     document.getElementById('editSubcategoria').value = def.subcategoria || '';
+    const cats = [...new Set(listaDefectos.map(d => d.categoria).filter(Boolean))].sort();
+    const subs = [...new Set(listaDefectos.map(d => d.subcategoria).filter(Boolean))].sort();
+    document.getElementById('listaCatsEdit').innerHTML = '';
+    document.getElementById('listaSubsEdit').innerHTML = '';
+    cats.forEach(v => { const o = document.createElement('option'); o.value = v; document.getElementById('listaCatsEdit').appendChild(o); });
+    subs.forEach(v => { const o = document.createElement('option'); o.value = v; document.getElementById('listaSubsEdit').appendChild(o); });
     document.getElementById('editCausa').value = def.causa;
     document.getElementById('editSolucion').value = def.solucion;
 
@@ -270,15 +305,20 @@ async function guardarEdicionDefecto(e) {
         imagenUrl = uploadData.url;
     }
 
-    // Actualizar datos incluyendo subcategoría
+    // Reutilizar la forma ya existente de categoría y subcategoría
+    const categorias = [...new Set(listaDefectos.map(d => d.categoria).filter(Boolean))];
+    const subcategorias = [...new Set(listaDefectos.map(d => d.subcategoria).filter(Boolean))];
+
     listaDefectos[index] = {
         id: id,
-        titulo: document.getElementById('editTitulo').value,
-        categoria: document.getElementById('editCategoria').value,
-        subcategoria: document.getElementById('editSubcategoria').value,
+        titulo: document.getElementById('editTitulo').value.trim(),
+        categoria: valorCanonico(document.getElementById('editCategoria').value, categorias),
+        subcategoria: valorCanonico(document.getElementById('editSubcategoria').value, subcategorias),
         imagenUrl: imagenUrl,
-        causa: document.getElementById('editCausa').value,
-        solucion: document.getElementById('editSolucion').value
+        causa: document.getElementById('editCausa').value.trim(),
+        solucion: document.getElementById('editSolucion').value.trim(),
+        fechaAlta: listaDefectos[index].fechaAlta || null,
+        fechaModificacion: new Date().toISOString()
     };
 
     try {

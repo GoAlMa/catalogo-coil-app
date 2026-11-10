@@ -71,7 +71,10 @@
             <p id="detailSolucion"></p>
         </div>
 
+        <p id="detailFechas" class="fechas"></p>
+
         <div class="modal-actions">
+            <button id="btnImprimirModal" class="btn-ghost">Imprimir ficha</button>
             <button id="btnEditarModal" class="btn-warning admin-only">Editar Defecto</button>
             <button id="btnBorrarModal" class="btn-danger admin-only">Borrar Defecto</button>
         </div>
@@ -90,10 +93,12 @@
             <input type="text" id="editTitulo" required>
 
             <label>Categoría:</label>
-            <input type="text" id="editCategoria" placeholder="Ej. Superficie y Metal Base" required>
+            <input type="text" id="editCategoria" list="listaCatsEdit" placeholder="Ej. Superficie y Metal Base" required>
 
             <label>Subcategoría:</label>
-            <input type="text" id="editSubcategoria" placeholder="Ej. Cráteres y Pintura" required>
+            <input type="text" id="editSubcategoria" list="listaSubsEdit" placeholder="Ej. Cráteres y Pintura" required>
+            <datalist id="listaCatsEdit"></datalist>
+            <datalist id="listaSubsEdit"></datalist>
 
             <label>Cambiar Fotografía (Opcional):</label>
             <input type="file" id="editFoto" accept="image/*">
