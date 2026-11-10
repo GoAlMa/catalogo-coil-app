@@ -9,3 +9,7 @@ uploads/
 defectos.json
 data/
 web/uploads/
+
+# IDE y ficheros de otros proyectos
+.idea/
+*.iml
